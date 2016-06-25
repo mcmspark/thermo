@@ -8,6 +8,8 @@ from kivy.clock import Clock
 from kivy.uix.image import Image
 from kivy.graphics import Color, Rectangle
 from kivy.uix.label import Label
+from collections import deque
+from Adafruit_BME280 import *
 import serial
 from time import time, sleep, gmtime, strftime, localtime
 import urllib
@@ -18,7 +20,10 @@ class Thermo(App):
 	BAUD = 9600
 	TIMEOUT = 5
 	lastWeatherRead=0.0
+	lastTempPressHumidRead=0.0
+	weatherText=''
 	updated=False
+	dataFeed = deque()
 	locs = ['master','tess','hall','lr','window']
 	devices = ['AA','AB','AC','AD','AE','AW']
 	temps = [0.0,0.0,0.0,0.0,0.0,0.0]
@@ -27,15 +32,17 @@ class Thermo(App):
 	ser = serial.Serial(DEVICE, BAUD)
 	voltage = 0.0
 	tempvale = 0.0
-	setpt = []
+	weather = []
+	sensor = BME280(mode=BME280_OSAMPLE_8)
+
 	def build(self):	
 		picture=Image(source='weather/download.jpg', allow_stretch=True)				
-		self.setpt = Label(font_size=44, markup=True, text="hello", pos=(55,55))
+		self.weather = Label(font_size=44, markup=True, text="hello", pos=(55,55), size=(270,175), halign='left', valign='top')
 		with picture.canvas:
 			Color(1,0,0,0.5)
 			Rectangle(pos=(50, 75), size=(270,175))
 
-		picture.add_widget(self.setpt)
+		picture.add_widget(self.weather)
 		Clock.schedule_interval(self.mainLoop, 10.0)
 		return picture
 
@@ -46,6 +53,7 @@ class Thermo(App):
 	def updateDisplay(self):
 		# draw everything
 		# if click then show subpanel or change config
+		self.weather.text = self.weatherText
 		return
 	
 	def readSensors(self):
@@ -55,6 +63,7 @@ class Thermo(App):
 		# get temperature
 		# messages are 12chars aIDTYPEVALUE aIDAWAKE---- or aIDSLEEPING-
 		# returns -100 on error, or the temperature as a float
+		
 		fim = time()+ self.TIMEOUT
 		
 		voltage = 0
@@ -75,6 +84,7 @@ class Thermo(App):
 					if msg[3:7] == "TEMP":
 						tempvalue = msg[7:]
 						self.temps[self.devices.index(deviceid)]=tempvalue
+						self.dataFeed.append((strftime('%a, %d %b %Y %H:%M:%S',localtime()), deviceid, "TEMP", tempvalue))
 						self.updated=True
 
 					if msg[3:7] == "BATT":
@@ -82,9 +92,21 @@ class Thermo(App):
 						if voltage == "LOW":
 							voltage = 0
 						self.batts[self.devices.index(deviceid)]=voltage
+						self.dataFeed.append((strftime('%a, %d %b %Y %H:%M:%S',localtime()), deviceid, "BATT", voltage))
+						
 			else:
 				sleep(5)
 		return
+	def getConnectedSensorData(self):
+		if(time()-self.lastTempPressHumidRead > 60):
+			# get BME280 data
+			temp=self.sensor.read_temperature()
+			press=self.sensor.read_pressure()
+			humid=self.sensor.read_humidity()
+			self.dataFeed.append((strftime('%a, %d %b %Y %H:%M:%S',localtime()), "BM", "TEMP", temp))
+			self.dataFeed.append((strftime('%a, %d %b %Y %H:%M:%S',localtime()), "BM", "PRESS", press))
+			self.dataFeed.append((strftime('%a, %d %b %Y %H:%M:%S',localtime()), "BM", "HUMID", humid))
+			self.lastTempPressHumidRead = time()
 
 	def getWeather(self):
 		if(time()-self.lastWeatherRead > 1800):
@@ -97,7 +119,9 @@ class Thermo(App):
 
 			self.temps[self.devices.index('AW')]=tempvalue
 			self.updated=True		
-			self.setpt.text = tempvalue
+			self.weatherText = tempvalue
+			self.dataFeed.append((strftime('%a, %d %b %Y %H:%M:%S',localtime()), "AW", "NEWS", tempvalue))
+						
 			self.lastWeatherRead = time()
 		return
 	
@@ -109,7 +133,10 @@ class Thermo(App):
 		if self.updated:
 			self.updated=False
 			with open("Output.txt", "a") as text_file:
-				text_file.write("{},{},{}\r\n".format(strftime('%a, %d %b %Y %H:%M:%S',localtime()),self.temps, self.batts))
+				for record in self.dataFeed:
+					text_file.write("{},{},{},{}\r\n".format(record[0],record[1],record[2],record[3]))
+				#text_file.write("{},{},{}\r\n".format(strftime('%a, %d %b %Y %H:%M:%S',localtime()),self.temps, self.batts))
+			self.dataFeed.clear()
 		return
 		
 	def downloadRequests(self):
@@ -123,6 +150,7 @@ class Thermo(App):
 	def mainLoop(self,args):
 		self.loadConfig()
 		self.getWeather()
+		self.getConnectedSensorData()
 		self.readSensors()
 		self.updateDisplay()
 		self.uploadData()
