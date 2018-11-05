@@ -1,0 +1,116 @@
+#:kivy 1.0
+#:import kivy kivy
+#:import win kivy.core.window
+
+<ThermoWidget>:
+        Image:
+                id: picture
+                source: root.picSource
+                allow_stretch: True
+                keep_ratio: False
+                pos: (0,0)
+        BoxLayout:
+                orientation: 'vertical'
+                padding: "10dp"
+                BoxLayout:
+                        size_hint_y: 50
+                        Button:
+                                size_hint_x: 2
+                                text: 'reset'
+                                on_release: root.reboot()
+                        Button:
+                                size_hint_x: 6
+                                text: 'Thermo'
+                                on_release: app.show_config()
+                        Button:
+                                size_hint_x: 2
+                                text: 'bright'
+                                on_release: root.brighter()
+                Label:
+                        id: zonealerts
+                        size_hint_y: 3
+                        font_size: 20
+                        markup: True
+                        text: root.zoneAlertsText
+                        halign: 'center'
+                        valign: 'bottom'
+
+                BoxLayout:
+                        size_hint_y: 300
+                        BoxLayout:
+                                size_hint_x: 8
+                                BoxLayout:
+                                        orientation: 'vertical'
+                                        BoxLayout:
+                                                size_hint_y: 8
+                                                ShadowLabel:
+                                                        id: avgTemp
+                                                        font_size: 100
+                                                        text: root.averageTempText
+                                                        halign: 'center'
+                                                        valign: 'center'
+                                                        decal: 5,-5
+                                                        tint: 0,0,0,1
+                                                BoxLayout:
+                                                        orientation: 'vertical'
+                                                        Button:
+                                                                id: increase
+                                                                text: '^'
+                                                                size: 20, 10      
+                                                        ShadowLabel:
+                                                                id: setPoint
+                                                                font_size: 88
+                                                                text: root.setPointText
+                                                                halign: 'center'
+                                                                valign: 'center'
+                                                                decal: 5,-5
+                                                                tint: 0,0,0,1
+                                                        Button:
+                                                                id: decrease
+                                                                text: 'v'
+                                                                size: 20, 10
+                                        BoxLayout:
+                                                size_hint_y: 2
+                                                id: zones
+                                                halign: 'center'
+                                                valign: 'center'
+                        Label:
+                                size_hint_x: 2
+                                id: tempData
+                                font_size: 24
+                                markup: True
+                                text: root.tempDataText
+                                halign: 'left'
+                                valign: 'top'
+                BoxLayout:
+                        size_hint_y: 50
+                        ShadowLabel:
+                                size_hint_x: 7
+                                id: weather
+                                font_size: 44
+                                markup: True
+                                text: root.weatherText
+                                halign: 'left'
+                                valign: 'top'
+                                decal: 3,-3
+                                tint: 0,0,0,1
+                        Label:
+                                size_hint_x: 3
+                                id: ipAddress
+                                font_size: 20
+                                markup: True
+                                text: root.ipAddressText
+                                halign: 'center'
+                                valign: 'top'
+<ShadowLabel>:
+        canvas.before:
+                Color:
+                        rgba: root.tint
+                Rectangle:
+                        pos:
+                                int(self.center_x - self.texture_size[0] / 2.) + root.decal[0],\
+                                int(self.center_y - self.texture_size[1] / 2.) + root.decal[1]
+                        size: root.texture_size
+                        texture: root.texture
+                Color:
+                        rgba: 1, 1, 1, 1
